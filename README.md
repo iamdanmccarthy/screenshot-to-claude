@@ -83,8 +83,8 @@ s2c:bindHotkeys({ capture = { { "cmd", "shift" }, "2" } })
 | Variable | Default | What it does |
 |---|---|---|
 | `terminalApp` | `"Ghostty"` | Terminal app name as macOS reports it — `"iTerm2"`, `"Terminal"`, `"WezTerm"`, `"kitty"`, `"Alacritty"`. |
-| `titlePatterns` | `{ "✳" }` | Case-insensitive substrings marking a window as a Claude session. Claude Code prefixes the terminal title with a sparkle; the rest of the title is the live task and changes constantly, so don't match on it. |
-| `strictTitleMatch` | `true` | Refuse to paste when the active tab isn't a Claude session. `false` pastes into the active window regardless. |
+| `titlePatterns` | `{ "✳" }` | Case-insensitive substrings marking a window as a Claude session. Only consulted when `strictTitleMatch` is `true`. Claude Code prefixes the terminal title with a sparkle; the rest of the title is the live task and changes constantly, so don't match on it. |
+| `strictTitleMatch` | `false` | Default pastes into the terminal's active window, whatever its title. Set `true` to only paste into a window matching `titlePatterns` and refuse otherwise — a guard against pasting into a plain shell tab, at the cost of depending on the title being intact. |
 | `saveCopies` | `true` | Also write a timestamped PNG, so you can reference the image by path later. |
 | `saveDir` | `~/Pictures/claude-screenshots` | Absolute path for saved copies. Created if missing. |
 | `pasteMods` / `pasteKey` | `{ "ctrl" }` / `"v"` | The keystroke Claude Code uses to read an image off the clipboard. |
@@ -111,9 +111,8 @@ terminal to surface the title Claude Code sets. Two cases where it won't:
 - **Terminals configured to override the title.** Terminal.app and iTerm2 can
   both be set to show their own title instead of the running program's.
 
-In either case set `strictTitleMatch = false`, which falls back to pasting into
-the active window — the right behavior when the window you're targeting is a
-Claude session anyway.
+Neither affects the default, which ignores titles and pastes into the active
+window. They only matter if you opt into `strictTitleMatch = true`.
 
 Verified on Ghostty. Other terminals should work but are untested; reports welcome.
 
@@ -129,10 +128,11 @@ itself uses to read an image off the macOS clipboard.
 
 ## Gotchas
 
-- **Tab targeting.** A terminal window reports the title of its *active* tab, and
-  there's no API for switching tabs. So the title check can't route between tabs
-  in one window — it only tells whether the tab you're already on is Claude, and
-  refuses if it isn't. Switch to your Claude tab first, then hit the hotkey.
+- **Tab targeting.** The paste lands in whichever tab is active in the target
+  window — there's no API for switching tabs, so switch to the tab you want
+  first, then hit the hotkey. With `strictTitleMatch = true` the title check
+  still can't route *between* tabs in one window; it only tells whether the tab
+  you're already on looks like Claude, and refuses if it doesn't.
 - **Global hotkeys.** Hammerspoon hotkeys are system-wide and will shadow that
   combination in every app. Pick something you don't otherwise use.
 - **Esc during capture** leaves the clipboard untouched. The spoon detects this

@@ -12,7 +12,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "ScreenshotToClaude"
-obj.version = "1.0.1"
+obj.version = "1.1.0"
 obj.author = "Dan McCarthy"
 obj.homepage = "https://github.com/iamdanmccarthy/screenshot-to-claude"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
@@ -35,15 +35,20 @@ obj.titlePatterns = { "\u{2733}" }
 
 --- ScreenshotToClaude.strictTitleMatch
 --- Variable
---- A terminal window reports the title of its *active* tab, and there is no API
---- for switching tabs, so the title check cannot route between tabs in one
---- window — it can only tell whether the tab you are already on is Claude.
+--- Whether to require a Claude-looking window title before pasting.
 ---
----  * `true` (default) — refuse to paste when the active tab is not a Claude
----    session, leaving the screenshot on the clipboard. Right choice when one
----    window holds a mix of Claude and plain shell tabs.
----  * `false` — paste into the active window regardless of its title.
-obj.strictTitleMatch = true
+---  * `false` (default) — paste into the terminal's active window, whatever its
+---    title says. Simple and predictable. Use this if you rename tabs, run
+---    Claude Code inside tmux, or your terminal overrides the window title.
+---  * `true` — only paste into a window whose title matches `titlePatterns`,
+---    searching every window of the app and refusing (leaving the screenshot on
+---    the clipboard) if none matches. Guards against pasting into a plain shell
+---    tab, at the cost of depending on the title being intact.
+---
+--- Note that a terminal window reports the title of its *active* tab and there
+--- is no API for switching tabs, so even in strict mode this cannot route
+--- between tabs within one window.
+obj.strictTitleMatch = false
 
 --- ScreenshotToClaude.saveCopies
 --- Variable
@@ -105,6 +110,15 @@ function obj:findTargetWindow()
   local app = hs.application.get(self.terminalApp)
   if not app then return nil, self.terminalApp .. " is not running" end
 
+  if not self.strictTitleMatch then
+    -- Whatever you are looking at in that terminal is the target.
+    local win = app:focusedWindow() or app:mainWindow() or app:allWindows()[1]
+    if not win then return nil, self.terminalApp .. " has no open windows" end
+    return win
+  end
+
+  -- Strict: search every window for one whose title marks it as a Claude
+  -- session, so a Claude window in the background is still found.
   for _, win in ipairs(app:allWindows()) do
     local title = (win:title() or ""):lower()
     for _, pattern in ipairs(self.titlePatterns) do
@@ -112,13 +126,7 @@ function obj:findTargetWindow()
     end
   end
 
-  if self.strictTitleMatch then
-    return nil, "no " .. self.terminalApp .. " window looks like a Claude session"
-  end
-
-  local win = app:mainWindow() or app:allWindows()[1]
-  if not win then return nil, self.terminalApp .. " has no open windows" end
-  return win
+  return nil, "no " .. self.terminalApp .. " window looks like a Claude session"
 end
 
 function obj:saveCopy(image)
