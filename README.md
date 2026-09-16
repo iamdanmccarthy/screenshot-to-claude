@@ -91,6 +91,32 @@ s2c:bindHotkeys({ capture = { { "cmd", "shift" }, "2" } })
 | `pasteDelay` | `0.25` | Seconds to let focus settle before pasting. Raise if pastes occasionally miss. |
 | `captureArgs` | `{ "-i", "-c" }` | Arguments to `/usr/sbin/screencapture`. `-c` is required. Add `-o` to drop window shadows. |
 
+## Terminal support
+
+Not Ghostty-specific. The capture and the paste are terminal-agnostic — `ctrl+V`
+is Claude Code's own binding for reading a clipboard image, not any terminal's
+keybinding. Point `terminalApp` at your terminal and you're done:
+
+```lua
+s2c.terminalApp = "iTerm2"
+```
+
+The spelling doesn't have to be exact; it's matched with `hs.application.get()`.
+
+The one part that varies by terminal is the `✳` title check, which needs your
+terminal to surface the title Claude Code sets. Two cases where it won't:
+
+- **Inside tmux or screen.** The multiplexer intercepts the title escape
+  sequence, so the window title reflects tmux rather than Claude Code.
+- **Terminals configured to override the title.** Terminal.app and iTerm2 can
+  both be set to show their own title instead of the running program's.
+
+In either case set `strictTitleMatch = false`, which falls back to pasting into
+the active window — the right behavior when the window you're targeting is a
+Claude session anyway.
+
+Verified on Ghostty. Other terminals should work but are untested; reports welcome.
+
 ## How it works
 
 1. `screencapture -i -c` grabs an interactive region to the clipboard.

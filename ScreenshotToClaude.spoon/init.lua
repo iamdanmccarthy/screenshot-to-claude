@@ -12,14 +12,15 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "ScreenshotToClaude"
-obj.version = "1.0.0"
+obj.version = "1.0.1"
 obj.author = "Dan McCarthy"
 obj.homepage = "https://github.com/iamdanmccarthy/screenshot-to-claude"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 --- ScreenshotToClaude.terminalApp
 --- Variable
---- Name of the terminal application running Claude Code, as macOS reports it.
+--- Name of the terminal application running Claude Code. Matched with
+--- `hs.application.get()`, so the spelling does not have to be exact.
 --- Defaults to `"Ghostty"`. Other values: `"iTerm2"`, `"Terminal"`,
 --- `"WezTerm"`, `"kitty"`, `"Alacritty"`.
 obj.terminalApp = "Ghostty"
@@ -79,6 +80,15 @@ obj.captureArgs = { "-i", "-c" }
 
 local SCREENCAPTURE = "/usr/sbin/screencapture"
 
+-- hs.application.get() matches names fuzzily, so `terminalApp` may be spelled
+-- differently from the name macOS reports. Compare identity, not spelling.
+local function sameApp(a, b)
+  if not (a and b) then return false end
+  local ida, idb = a:bundleID(), b:bundleID()
+  if ida and idb then return ida == idb end
+  return a:name() == b:name()
+end
+
 local function mkdirp(path)
   local acc = ""
   for segment in path:gmatch("[^/]+") do
@@ -127,15 +137,17 @@ function obj:pasteIntoClaude()
     return self
   end
 
+  local targetApp = win:application()
+  local targetName = (targetApp and targetApp:name()) or self.terminalApp
+
   win:focus()
 
   hs.timer.doAfter(self.pasteDelay, function()
     -- Never fire the paste blind: if focus did not land where we expected,
     -- leave the shot on the clipboard rather than sending a keystroke into
     -- whatever application happens to be frontmost.
-    local front = hs.application.frontmostApplication()
-    if not front or front:name() ~= self.terminalApp then
-      hs.alert.show("Could not focus " .. self.terminalApp
+    if not sameApp(hs.application.frontmostApplication(), targetApp) then
+      hs.alert.show("Could not focus " .. targetName
         .. " — screenshot is on the clipboard")
       return
     end
